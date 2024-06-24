@@ -1,69 +1,86 @@
-﻿using GDE.GenericSelectionUI;
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
 using UnityEngine;
 using UnityEngine.UI;
 
-public class PartyScreen : SelectionUI<TextSlot>
+public class PartyScreen : MonoBehaviour
 {
     [SerializeField] Text messageText;
 
     PartyMemberUI[] memberSlots;
     List<Pokemon> pokemons;
-    PokemonParty party;
 
-    public Pokemon SelectedMember => pokemons[selectedItem];
+    int selection = 0;
+
+    public Pokemon SelectedMember => pokemons[selection];
+
+    /// <summary>
+    /// Party screen can be called from different states like ActionSelection, RunningTurn, AboutToUse
+    /// </summary>
+    public BattleState? CalledFrom { get; set; }
 
     public void Init()
     {
         memberSlots = GetComponentsInChildren<PartyMemberUI>(true);
-        SetSelectionSettings(SelectionType.Grid, 2);
-
-        party = PokemonParty.GetPlayerParty();
-        SetPartyData();
-
-        party.OnUpdated += SetPartyData;
     }
 
-    public void SetPartyData()
+    public void SetPartyData(List<Pokemon> pokemons)
     {
-        pokemons = party.Pokemons;
-
-        ClearItems();
+        this.pokemons = pokemons;
 
         for (int i = 0; i < memberSlots.Length; i++)
         {
             if (i < pokemons.Count)
             {
                 memberSlots[i].gameObject.SetActive(true);
-                memberSlots[i].Init(pokemons[i]);
+                memberSlots[i].SetData(pokemons[i]);
             }
             else
                 memberSlots[i].gameObject.SetActive(false);
         }
 
-        var textSlots = memberSlots.Select(m => m.GetComponent<TextSlot>());
-        SetItems(textSlots.Take(pokemons.Count).ToList());
+        UpdateMemberSelection(selection);
 
         messageText.text = "Choose a Pokemon";
     }
 
-    public void ShowIfTmIsUsable(TmItem tmItem)
+    public void HandleUpdate(Action onSelected, Action onBack)
     {
-        for (int i = 0; i < pokemons.Count; i++)
+        var prevSelection = selection;
+
+        if (Input.GetKeyDown(KeyCode.RightArrow))
+            ++selection;
+        else if (Input.GetKeyDown(KeyCode.LeftArrow))
+            --selection;
+        else if (Input.GetKeyDown(KeyCode.DownArrow))
+            selection += 2;
+        else if (Input.GetKeyDown(KeyCode.UpArrow))
+            selection -= 2;
+
+        selection = Mathf.Clamp(selection, 0, pokemons.Count - 1);
+
+        if (selection != prevSelection)
+            UpdateMemberSelection(selection);
+
+        if (Input.GetKeyDown(KeyCode.Z))
         {
-            string message = tmItem.CanBeTaught(pokemons[i]) ? "ABLE!" : "NOT ABLE!";
-            memberSlots[i].SetMessage(message);
+            onSelected?.Invoke();
+        }
+        else if (Input.GetKeyDown(KeyCode.X))
+        {
+            onBack?.Invoke();
         }
     }
 
-    public void ClearMemberSlotMessages()
+    public void UpdateMemberSelection(int selectedMember)
     {
         for (int i = 0; i < pokemons.Count; i++)
         {
-            memberSlots[i].SetMessage("");
+            if (i == selectedMember)
+                memberSlots[i].SetSelected(true);
+            else
+                memberSlots[i].SetSelected(false);
         }
     }
 

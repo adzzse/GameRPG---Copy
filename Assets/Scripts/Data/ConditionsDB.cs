@@ -25,7 +25,7 @@ public class ConditionsDB
                 StartMessage = "has been poisoned",
                 OnAfterTurn = (Pokemon pokemon) =>
                 {
-                    pokemon.DecreaseHP(pokemon.MaxHp / 8);
+                    pokemon.UpdateHP(pokemon.MaxHp / 8);
                     pokemon.StatusChanges.Enqueue($"{pokemon.Base.Name} hurt itself due to poison");
                 }
             }
@@ -38,7 +38,7 @@ public class ConditionsDB
                 StartMessage = "has been burned",
                 OnAfterTurn = (Pokemon pokemon) =>
                 {
-                    pokemon.DecreaseHP(pokemon.MaxHp / 16);
+                    pokemon.UpdateHP(pokemon.MaxHp / 16);
                     pokemon.StatusChanges.Enqueue($"{pokemon.Base.Name} hurt itself due to burn");
                 }
             }
@@ -137,9 +137,61 @@ public class ConditionsDB
 
                     // Hurt by confusion
                     pokemon.StatusChanges.Enqueue($"{pokemon.Base.Name} is confused");
-                    pokemon.DecreaseHP(pokemon.MaxHp / 8);
+                    pokemon.UpdateHP(pokemon.MaxHp / 8);
                     pokemon.StatusChanges.Enqueue($"It hurt itself due to confusion");
                     return false;
+                }
+            }
+        },
+
+        // WEATHER Conditions
+        {
+            ConditionID.sunny,
+            new Condition()
+            {
+                Name = "Harsh Sunlight",
+                StartMessage = "The weather has changed to Harsh Sunlight",
+                EffectMessage = "the sulight is harsh",
+                OnDamageModify = (Pokemon source, Pokemon target, Move move) =>
+                {
+                    if (move.Base.Type == PokemonType.Fire)
+                        return 1.5f;
+                    else if (move.Base.Type == PokemonType.Water)
+                        return 0.5f;
+
+                    return 1f;
+                }
+            }
+        },
+        {
+            ConditionID.rain,
+            new Condition()
+            {
+                Name = "Heavy Rain",
+                StartMessage = "It started raining heavily",
+                EffectMessage = "It's raining heavily",
+                OnDamageModify = (Pokemon source, Pokemon target, Move move) =>
+                {
+                    if (move.Base.Type == PokemonType.Water)
+                        return 1.5f;
+                    else if (move.Base.Type == PokemonType.Fire)
+                        return 0.5f;
+
+                    return 1f;
+                }
+            }
+        },
+        {
+            ConditionID.sandstorm,
+            new Condition()
+            {
+                Name = "Sandstorm",
+                StartMessage = "A sandstrom is raging",
+                EffectMessage = "The sandstorm rages",
+                OnWeather = (Pokemon pokemon) =>
+                {
+                    pokemon.UpdateHP(Mathf.RoundToInt((float)pokemon.MaxHp / 16f));
+                    pokemon.StatusChanges.Enqueue($"{pokemon.Base.Name} has been buffeted by sandstorm");
                 }
             }
         }
@@ -161,5 +213,6 @@ public class ConditionsDB
 public enum ConditionID
 {
     none, psn, brn, slp, par, frz,
-    confusion
+    confusion,
+    sunny, rain, sandstorm
 }

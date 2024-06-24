@@ -1,41 +1,29 @@
-﻿using GDE.GenericSelectionUI;
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
 using UnityEngine;
 using UnityEngine.UI;
 
-public class InventoryUI : SelectionUI<TextSlot>
+public class InventoryUI : MonoBehaviour
 {
     [SerializeField] GameObject itemList;
     [SerializeField] ItemSlotUI itemSlotUI;
 
-    [SerializeField] Text categoryText;
     [SerializeField] Image itemIcon;
     [SerializeField] Text itemDescription;
 
-    [SerializeField] Image upArrow;
-    [SerializeField] Image downArrow;
-
-    int selectedCategory = 0;
-
-    const int itemsInViewport = 8;
+    int selectedItem = 0;
 
     List<ItemSlotUI> slotUIList;
     Inventory inventory;
-    RectTransform itemListRect;
     private void Awake()
     {
         inventory = Inventory.GetInventory();
-        itemListRect = itemList.GetComponent<RectTransform>();
     }
 
     private void Start()
     {
         UpdateItemList();
-
-        inventory.OnUpdated += UpdateItemList;
     }
 
     void UpdateItemList()
@@ -45,7 +33,7 @@ public class InventoryUI : SelectionUI<TextSlot>
             Destroy(child.gameObject);
 
         slotUIList = new List<ItemSlotUI>();
-        foreach (var itemSlot in inventory.GetSlotsByCategory(selectedCategory))
+        foreach (var itemSlot in inventory.Slots)
         {
             var slotUIObj = Instantiate(itemSlotUI, itemList.transform);
             slotUIObj.SetData(itemSlot);
@@ -53,76 +41,40 @@ public class InventoryUI : SelectionUI<TextSlot>
             slotUIList.Add(slotUIObj);
         }
 
-        SetItems(slotUIList.Select(s => s.GetComponent<TextSlot>()).ToList());
-
-        UpdateSelectionInUI();
+        UpdateItemSelection();
     }
 
-    public override void HandleUpdate()
+    public void HandleUpdate(Action onBack)
     {
-        int prevCategory = selectedCategory;
+        int prevSelection = selectedItem;
 
-        if (Input.GetKeyDown(KeyCode.RightArrow))
-            ++selectedCategory;
-        else if (Input.GetKeyDown(KeyCode.LeftArrow))
-            --selectedCategory;
+        if (Input.GetKeyDown(KeyCode.DownArrow))
+            ++selectedItem;
+        else if (Input.GetKeyDown(KeyCode.UpArrow))
+            --selectedItem;
 
-        if (selectedCategory > Inventory.ItemCategories.Count - 1)
-            selectedCategory = 0;
-        else if (selectedCategory < 0)
-            selectedCategory = Inventory.ItemCategories.Count - 1;
+        selectedItem = Mathf.Clamp(selectedItem, 0, inventory.Slots.Count - 1);
 
-        if (prevCategory != selectedCategory)
+        if (prevSelection != selectedItem)
+            UpdateItemSelection();
+
+        if (Input.GetKeyDown(KeyCode.X))
+            onBack?.Invoke();
+
+    }
+
+    void UpdateItemSelection()
+    {
+        for (int i = 0; i < slotUIList.Count; i++)
         {
-            ResetSelection();
-            categoryText.text = Inventory.ItemCategories[selectedCategory];
-            UpdateItemList();
+            if (i == selectedItem)
+                slotUIList[i].NameText.color = GlobalSettings.i.HighlightedColor;
+            else
+                slotUIList[i].NameText.color = Color.black;
         }
 
-        base.HandleUpdate();
+        var item = inventory.Slots[selectedItem].Item;
+        itemIcon.sprite = item.Icon;
+        itemDescription.text = item.Description;
     }
-
-    public override void UpdateSelectionInUI()
-    {
-        base.UpdateSelectionInUI();
-
-        var slots = inventory.GetSlotsByCategory(selectedCategory);
-        if (slots.Count > 0)
-        {
-            var item = slots[selectedItem].Item;
-            itemIcon.sprite = item.Icon;
-            itemDescription.text = item.Description;
-        }
-
-        HandleScrolling();
-    }
-
-    void HandleScrolling()
-    {
-        if (slotUIList.Count <= itemsInViewport) return;
-
-        float scrollPos = Mathf.Clamp(selectedItem - itemsInViewport / 2, 0, selectedItem) * slotUIList[0].Height;
-        itemListRect.localPosition = new Vector2(itemListRect.localPosition.x, scrollPos);
-
-        bool showUpArrow = selectedItem > itemsInViewport / 2;
-        upArrow.gameObject.SetActive(showUpArrow);
-
-        bool showDownArrow = selectedItem + itemsInViewport / 2 < slotUIList.Count;
-        downArrow.gameObject.SetActive(showDownArrow);
-    }
-
-    void ResetSelection()
-    {
-        selectedItem = 0;
-
-        upArrow.gameObject.SetActive(false);
-        downArrow.gameObject.SetActive(false);
-
-        itemIcon.sprite = null;
-        itemDescription.text = "";
-    }
-
-    public ItemBase SelectedItem => inventory.GetItem(selectedItem, selectedCategory);
-
-    public int SelectedCategory => selectedCategory;
 }

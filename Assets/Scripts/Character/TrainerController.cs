@@ -11,8 +11,6 @@ public class TrainerController : MonoBehaviour, Interactable, ISavable
     [SerializeField] GameObject exclamation;
     [SerializeField] GameObject fov;
 
-    [SerializeField] AudioClip trainerAppearsClip;
-
     // State
     bool battleLost = false;
 
@@ -32,29 +30,25 @@ public class TrainerController : MonoBehaviour, Interactable, ISavable
         character.HandleUpdate();
     }
 
-    public IEnumerator Interact(Transform initiator)
+    public void Interact(Transform initiator)
     {
         character.LookTowards(initiator.position);
 
         if (!battleLost)
         {
-            AudioManager.i.PlayMusic(trainerAppearsClip);
-
-            yield return DialogManager.Instance.ShowDialog(dialog);
-            GameController.Instance.StartTrainerBattle(this);
+            StartCoroutine(DialogManager.Instance.ShowDialog(dialog, () =>
+            {
+                GameController.Instance.StartTrainerBattle(this);
+            }));
         }
         else
         {
-            yield return DialogManager.Instance.ShowDialog(dialogAfterBattle);
+            StartCoroutine(DialogManager.Instance.ShowDialog(dialogAfterBattle));
         }
     }
 
     public IEnumerator TriggerTrainerBattle(PlayerController player)
     {
-        GameController.Instance.StateMachine.Push(CutsceneState.i);
-
-        AudioManager.i.PlayMusic(trainerAppearsClip);
-
         // Show Exclamation
         exclamation.SetActive(true);
         yield return new WaitForSeconds(0.8f);
@@ -68,11 +62,10 @@ public class TrainerController : MonoBehaviour, Interactable, ISavable
         yield return character.Move(moveVec);
 
         // Show dialog
-        yield return DialogManager.Instance.ShowDialog(dialog);
-
-        GameController.Instance.StateMachine.Pop();
-
-        GameController.Instance.StartTrainerBattle(this);
+        StartCoroutine(DialogManager.Instance.ShowDialog(dialog, () =>
+        {
+            GameController.Instance.StartTrainerBattle(this);
+        }));
     }
 
     public void BattleLost()

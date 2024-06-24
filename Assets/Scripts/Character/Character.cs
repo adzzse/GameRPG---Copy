@@ -26,7 +26,7 @@ public class Character : MonoBehaviour
         transform.position = pos;
     }
 
-    public IEnumerator Move(Vector2 moveVec, Action OnMoveOver = null, bool checkCollisions = true)
+    public IEnumerator Move(Vector2 moveVec, Action OnMoveOver = null)
     {
         animator.MoveX = Mathf.Clamp(moveVec.x, -1f, 1f);
         animator.MoveY = Mathf.Clamp(moveVec.y, -1f, 1f);
@@ -35,18 +35,8 @@ public class Character : MonoBehaviour
         targetPos.x += moveVec.x;
         targetPos.y += moveVec.y;
 
-        var ledge = CheckForLedge(targetPos);
-        if (ledge != null)
-        {
-            if (ledge.TryToJump(this, moveVec))
-                yield break;
-        }
-
-        if (checkCollisions && !IsPathClear(targetPos))
+        if (!IsPathClear(targetPos))
             yield break;
-
-        if (animator.IsSurfing && Physics2D.OverlapCircle(targetPos, 0.3f, GameLayers.i.WaterLayer) == null)
-            animator.IsSurfing = false;
 
         IsMoving = true;
 
@@ -72,11 +62,7 @@ public class Character : MonoBehaviour
         var diff = targetPos - transform.position;
         var dir = diff.normalized;
 
-        var collisionLayer = GameLayers.i.SolidLayer | GameLayers.i.InteractableLayer | GameLayers.i.PlayerLayer;
-        if (!animator.IsSurfing)
-            collisionLayer = collisionLayer | GameLayers.i.WaterLayer;
-
-        if (Physics2D.BoxCast(transform.position + dir, new Vector2(0.2f, 0.2f), 0f, dir, diff.magnitude - 1, collisionLayer) == true)
+        if (Physics2D.BoxCast(transform.position + dir, new Vector2(0.2f, 0.2f), 0f, dir, diff.magnitude - 1, GameLayers.i.SolidLayer | GameLayers.i.InteractableLayer | GameLayers.i.PlayerLayer) == true)
             return false;
 
         return true;
@@ -90,12 +76,6 @@ public class Character : MonoBehaviour
         }
 
         return true;
-    }
-
-    Ledge CheckForLedge(Vector3 targetPos)
-    {
-        var collider = Physics2D.OverlapCircle(targetPos, 0.15f, GameLayers.i.LedgeLayer);
-        return collider?.GetComponent<Ledge>();
     }
 
     public void LookTowards(Vector3 targetPos)

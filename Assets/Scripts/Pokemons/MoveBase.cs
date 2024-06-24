@@ -21,8 +21,44 @@ public class MoveBase : ScriptableObject
     [SerializeField] MoveEffects effects;
     [SerializeField] List<SecondaryEffects> secondaries;
     [SerializeField] MoveTarget target;
+    [SerializeField] List<MoveFlag> flags;
 
-    [SerializeField] AudioClip sound;
+    public static void InitMoves()
+    {
+        var movesList = Resources.LoadAll<MoveBase>("");
+        foreach (var move in movesList)
+        {
+            move.effects.Source = EffectSource.Move;
+        }
+    }
+
+    public bool HasFlag(MoveFlag flag)
+    {
+        if (flags != null && flags.Contains(flag))
+            return true;
+
+        return false;
+    }
+
+    [SerializeField] Vector2Int hitRange;
+
+    public int GetHitTimes()
+    {
+        if (hitRange == Vector2Int.zero)
+            return 1;
+
+        int hitCount = 1;
+        if (hitRange.y == 0)
+        {
+            hitCount = hitRange.x;
+        }
+        else
+        {
+            hitCount = Random.Range(hitRange.x, hitRange.y + 1);
+        }
+
+        return hitCount;
+    }
 
     public string Name {
         get { return name; }
@@ -72,15 +108,24 @@ public class MoveBase : ScriptableObject
         get { return target; }
     }
 
-    public AudioClip Sound => sound;
+    public List<MoveFlag> Flags {
+        get { return flags; }
+    }
+}
+
+public class EffectData
+{
+    public EffectSource Source { get; set; }
+    public int SourceId { get; set; }
 }
 
 [System.Serializable]
-public class MoveEffects
+public class MoveEffects : EffectData
 {
     [SerializeField] List<StatBoost> boosts;
     [SerializeField] ConditionID status;
     [SerializeField] ConditionID volatileStatus;
+    [SerializeField] ConditionID weather;
 
     public List<StatBoost> Boosts {
         get { return boosts; }
@@ -92,6 +137,10 @@ public class MoveEffects
 
     public ConditionID VolatileStatus {
         get { return volatileStatus; }
+    }
+
+    public ConditionID Weather {
+        get { return weather; }
     }
 }
 
@@ -125,4 +174,23 @@ public enum MoveCategory
 public enum MoveTarget
 {
     Foe, Self
+}
+
+public enum EffectSource
+{
+    Ability, Item, Move, Condition
+}
+
+/*
+List of flags and their descriptions:
+
+bite: Power is multiplied by 1.5 when used by a Pokemon with the Strong Jaw Ability.
+contact: Makes contact.
+pulse: Power is multiplied by 1.5 when used by a Pokemon with the Mega Launcher Ability.
+punch: Power is multiplied by 1.2 when used by a Pokemon with the Iron Fist Ability.
+sound: Has no effect on Pokemon with the Soundproof Ability.
+*/
+public enum MoveFlag
+{
+    Contact, Punch, Bite, Pulse, Sound
 }

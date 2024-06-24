@@ -23,12 +23,6 @@ public class BattleHud : MonoBehaviour
 
     public void SetData(Pokemon pokemon)
     {
-        if (_pokemon != null)
-        {
-            _pokemon.OnHPChanged -= UpdateHP;
-            _pokemon.OnStatusChanged -= SetStatusText;
-        }
-
         _pokemon = pokemon;
 
         nameText.text = pokemon.Base.Name;
@@ -47,7 +41,6 @@ public class BattleHud : MonoBehaviour
 
         SetStatusText();
         _pokemon.OnStatusChanged += SetStatusText;
-        _pokemon.OnHPChanged += UpdateHP;
     }
 
     void SetStatusText()
@@ -72,7 +65,7 @@ public class BattleHud : MonoBehaviour
     {
         if (expBar == null) return;
 
-        float normalizedExp = _pokemon.GetNormalizedExp();
+        float normalizedExp = GetNormalizedExp();
         expBar.transform.localScale = new Vector3(normalizedExp, 1, 1);
     }
 
@@ -83,31 +76,25 @@ public class BattleHud : MonoBehaviour
         if (reset)
             expBar.transform.localScale = new Vector3(0, 1, 1);
 
-        float normalizedExp = _pokemon.GetNormalizedExp();
+        float normalizedExp = GetNormalizedExp();
         yield return expBar.transform.DOScaleX(normalizedExp, 1.5f).WaitForCompletion();
     }
 
-    public void UpdateHP()
+    float GetNormalizedExp()
     {
-        StartCoroutine(UpdateHPAsync());
+        int currLevelExp = _pokemon.Base.GetExpForLevel(_pokemon.Level);
+        int nextLevelExp = _pokemon.Base.GetExpForLevel(_pokemon.Level + 1);
+
+        float normalizedExp = (float)(_pokemon.Exp - currLevelExp) / (nextLevelExp - currLevelExp);
+        return Mathf.Clamp01(normalizedExp);
     }
 
-    public IEnumerator UpdateHPAsync()
+    public IEnumerator UpdateHP()
     {
-        yield return hpBar.SetHPSmooth((float)_pokemon.HP / _pokemon.MaxHp);
-    }
-
-    public IEnumerator WaitForHPUpdate()
-    {
-        yield return new WaitUntil(() => hpBar.IsUpdating == false);
-    }
-
-    public void ClearData()
-    {
-        if (_pokemon != null)
+        if (_pokemon.HpChanged)
         {
-            _pokemon.OnHPChanged -= UpdateHP;
-            _pokemon.OnStatusChanged -= SetStatusText;
+            yield return hpBar.SetHPSmooth((float)_pokemon.HP / _pokemon.MaxHp);
+            _pokemon.HpChanged = false;
         }
     }
 }

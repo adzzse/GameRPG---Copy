@@ -1,8 +1,9 @@
-﻿using GDEUtils.StateMachine;
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+
+public enum GameState { FreeRoam, Battle, Dialog, Menu, PartyScreen, Bag, Cutscene, Paused }
 
 public class GameController : MonoBehaviour
 {
@@ -12,70 +13,97 @@ public class GameController : MonoBehaviour
     [SerializeField] PartyScreen partyScreen;
     [SerializeField] InventoryUI inventoryUI;
 
-    public StateMachine<GameController> StateMachine { get; private set; }
+    GameState state;
+    GameState stateBeforePause;
 
     public SceneDetails CurrentScene { get; private set; }
     public SceneDetails PrevScene { get; private set; }
+
+    MenuController menuController;
 
     public static GameController Instance { get; private set; }
     private void Awake()
     {
         Instance = this;
 
+        menuController = GetComponent<MenuController>();
+
         PokemonDB.Init();
         MoveDB.Init();
         ConditionsDB.Init();
-        ItemDB.Init();
-        QuestDB.Init();
+        AbilitiesDB.Init();
+        MoveBase.InitMoves();
     }
 
     private void Start()
     {
-        StateMachine = new StateMachine<GameController>(this);
-        StateMachine.ChangeState(FreeRoamState.i);
-
         battleSystem.OnBattleOver += EndBattle;
 
         partyScreen.Init();
 
         DialogManager.Instance.OnShowDialog += () =>
         {
-            StateMachine.Push(DialogueState.i);
+            state = GameState.Dialog;
         };
 
-        DialogManager.Instance.OnDialogFinished += () =>
+        DialogManager.Instance.OnCloseDialog += () =>
         {
-            StateMachine.Pop();
+            if (state == GameState.Dialog)
+                state = GameState.FreeRoam;
         };
+
+        menuController.onBack += () =>
+        {
+            state = GameState.FreeRoam;
+        };
+
+        menuController.onMenuSelected += OnMenuSelected;
     }
 
     public void PauseGame(bool pause)
     {
         if (pause)
         {
-            StateMachine.Push(PauseState.i);
+            stateBeforePause = state;
+            state = GameState.Paused;
         }
         else
         {
-            StateMachine.Pop();
+            state = stateBeforePause;
         }
     }
 
-    public void StartBattle(BattleTrigger trigger)
+    public void StartBattle()
     {
-        BattleState.i.trigger = trigger;
-        StateMachine.Push(BattleState.i);
+        state = GameState.Battle;
+        battleSystem.gameObject.SetActive(true);
+        worldCamera.gameObject.SetActive(false);
+
+        var playerParty = playerController.GetComponent<PokemonParty>();
+        var wildPokemon = CurrentScene.GetComponent<MapArea>().GetRandomWildPokemon();
+
+        var wildPokemonCopy = new Pokemon(wildPokemon.Base, wildPokemon.Level);
+
+        battleSystem.StartBattle(playerParty, wildPokemonCopy);
     }
 
     TrainerController trainer;
     public void StartTrainerBattle(TrainerController trainer)
     {
-        BattleState.i.trainer = trainer;
-        StateMachine.Push(BattleState.i);
+        state = GameState.Battle;
+        battleSystem.gameObject.SetActive(true);
+        worldCamera.gameObject.SetActive(false);
+
+        this.trainer = trainer;
+        var playerParty = playerController.GetComponent<PokemonParty>();
+        var trainerParty = trainer.GetComponent<PokemonParty>();
+
+        battleSystem.StartTrainerBattle(playerParty, trainerParty);
     }
 
     public void OnEnterTrainersView(TrainerController trainer)
     {
+        state = GameState.Cutscene;
         StartCoroutine(trainer.TriggerTrainerBattle(playerController));
     }
 
@@ -87,23 +115,60 @@ public class GameController : MonoBehaviour
             trainer = null;
         }
 
-        partyScreen.SetPartyData();
-
+        state = GameState.FreeRoam;
         battleSystem.gameObject.SetActive(false);
         worldCamera.gameObject.SetActive(true);
-
-        var playerParty = playerController.GetComponent<PokemonParty>();
-        bool hasEvolutions = playerParty.CheckForEvolutions();
-
-        if (hasEvolutions)
-            StartCoroutine(playerParty.RunEvolutions());
-        else
-            AudioManager.i.PlayMusic(CurrentScene.SceneMusic, fade: true);
     }
 
     private void Update()
     {
-        StateMachine.Execute();
+        if (state == GameState.FreeRoam)
+        {
+            playerController.HandleUpdate();
+
+            if (Input.GetKeyDown(KeyCode.Return))
+            {
+                menuController.OpenMenu();
+                state = GameState.Menu;
+            }
+        }
+        else if (state == GameState.Battle)
+        {
+            battleSystem.HandleUpdate();
+        }
+        else if (state == GameState.Dialog)
+        {
+            DialogManager.Instance.HandleUpdate();
+        }
+        else if (state == GameState.Menu)
+        {
+            menuController.HandleUpdate();
+        }
+        else if (state == GameState.PartyScreen)
+        {
+            Action onSelected = () =>
+            {
+                // TODO: Go to Summary Screen
+            };
+
+            Action onBack = () =>
+            {
+                partyScreen.gameObject.SetActive(false);
+                state = GameState.FreeRoam;
+            };
+
+            partyScreen.HandleUpdate(onSelected, onBack);
+        }
+        else if (state == GameState.Bag)
+        {
+            Action onBack = () =>
+            {
+                inventoryUI.gameObject.SetActive(false);
+                state = GameState.FreeRoam;
+            };
+
+            inventoryUI.HandleUpdate(onBack);
+        }
     }
 
     public void SetCurrentScene(SceneDetails currScene)
@@ -112,32 +177,31 @@ public class GameController : MonoBehaviour
         CurrentScene = currScene;
     }
 
-    public IEnumerator MoveCamera(Vector2 moveOffset, bool waitForFadeOut = false)
+    void OnMenuSelected(int selectedItem)
     {
-        yield return Fader.i.FadeIn(0.5f);
-
-        worldCamera.transform.position += new Vector3(moveOffset.x, moveOffset.y);
-
-        if (waitForFadeOut)
-            yield return Fader.i.FadeOut(0.5f);
-        else
-            StartCoroutine(Fader.i.FadeOut(0.5f));
+        if (selectedItem == 0)
+        {
+            partyScreen.gameObject.SetActive(true);
+            partyScreen.SetPartyData(playerController.GetComponent<PokemonParty>().Pokemons);
+            state = GameState.PartyScreen;
+        }
+        else if (selectedItem == 1)
+        {
+            // Bag
+            inventoryUI.gameObject.SetActive(true);
+            state = GameState.Bag;
+        }
+        else if (selectedItem == 2)
+        {
+            // Save
+            SavingSystem.i.Save("saveSlot1");
+            state = GameState.FreeRoam;
+        }
+        else if (selectedItem == 3)
+        {
+            // Load
+            SavingSystem.i.Load("saveSlot1");
+            state = GameState.FreeRoam;
+        }
     }
-
-    private void OnGUI()
-    {
-        var style = new GUIStyle();
-        style.fontSize = 24;
-
-        //GUILayout.Label("STATE STACK", style);
-        //foreach (var state in StateMachine.StateStack)
-        //{
-        //    GUILayout.Label(state.GetType().ToString(), style);
-        //}
-    }
-
-    public PlayerController PlayerController => playerController;
-    public Camera WorldCamera => worldCamera;
-
-    public PartyScreen PartyScreen => partyScreen;
 }

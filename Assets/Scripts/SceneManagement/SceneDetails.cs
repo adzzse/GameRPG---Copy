@@ -7,7 +7,6 @@ using UnityEngine.SceneManagement;
 public class SceneDetails : MonoBehaviour
 {
     [SerializeField] List<SceneDetails> connectedScenes;
-    [SerializeField] AudioClip sceneMusic;
 
     public bool IsLoaded { get; private set; }
 
@@ -21,9 +20,6 @@ public class SceneDetails : MonoBehaviour
 
             LoadScene();
             GameController.Instance.SetCurrentScene(this);
-
-            if (sceneMusic != null)
-                AudioManager.i.PlayMusic(sceneMusic, fade: true);
 
             // Load all connected scenes
             foreach (var scene in connectedScenes)
@@ -80,6 +76,4 @@ public class SceneDetails : MonoBehaviour
         var savableEntities = FindObjectsOfType<SavableEntity>().Where(x => x.gameObject.scene == currScene).ToList();
         return savableEntities;
     }
-
-    public AudioClip SceneMusic => sceneMusic;
 }

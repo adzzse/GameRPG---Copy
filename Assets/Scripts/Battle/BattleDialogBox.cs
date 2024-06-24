@@ -6,16 +6,16 @@ using UnityEngine.UI;
 public class BattleDialogBox : MonoBehaviour
 {
     [SerializeField] int lettersPerSecond;
-
+    
     [SerializeField] Text dialogText;
     [SerializeField] GameObject actionSelector;
     [SerializeField] GameObject moveSelector;
     [SerializeField] GameObject moveDetails;
     [SerializeField] GameObject choiceBox;
-
+    
     [SerializeField] List<Text> actionTexts;
     [SerializeField] List<Text> moveTexts;
-
+    
     [SerializeField] Text ppText;
     [SerializeField] Text typeText;
 
@@ -39,7 +39,7 @@ public class BattleDialogBox : MonoBehaviour
         foreach (var letter in dialog.ToCharArray())
         {
             dialogText.text += letter;
-            yield return new WaitForSeconds(1f / lettersPerSecond);
+            yield return new WaitForSeconds(1f/lettersPerSecond);
         }
 
         yield return new WaitForSeconds(1f);
@@ -66,11 +66,9 @@ public class BattleDialogBox : MonoBehaviour
         choiceBox.SetActive(enabled);
     }
 
-    public bool IsChoiceBoxEnabled => choiceBox.activeSelf;
-
     public void UpdateActionSelection(int selectedAction)
     {
-        for (int i = 0; i < actionTexts.Count; ++i)
+        for (int i=0; i<actionTexts.Count; ++i)
         {
             if (i == selectedAction)
                 actionTexts[i].color = highlightedColor;
@@ -81,7 +79,7 @@ public class BattleDialogBox : MonoBehaviour
 
     public void UpdateMoveSelection(int selectedMove, Move move)
     {
-        for (int i = 0; i < moveTexts.Count; ++i)
+        for (int i=0; i<moveTexts.Count; ++i)
         {
             if (i == selectedMove)
                 moveTexts[i].color = highlightedColor;
@@ -100,7 +98,7 @@ public class BattleDialogBox : MonoBehaviour
 
     public void SetMoveNames(List<Move> moves)
     {
-        for (int i = 0; i < moveTexts.Count; ++i)
+        for (int i=0; i<moveTexts.Count; ++i)
         {
             if (i < moves.Count)
                 moveTexts[i].text = moves[i].Base.Name;

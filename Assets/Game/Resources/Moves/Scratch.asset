@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Scratch
   m_EditorClassIdentifier: 
   name: Scratch
-  description: Scratches the foe with it's claw
+  description: 
   type: 1
   power: 40
   accuracy: 100
@@ -25,6 +25,7 @@ MonoBehaviour:
     boosts: []
     status: 0
     volatileStatus: 0
+    weather: 0
   secondaries: []
   target: 0
-  sound: {fileID: 8300000, guid: 3ed64bd4d970aa948aec3f354eeac1c5, type: 3}
+  flags: 00000000
